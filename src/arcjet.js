@@ -16,8 +16,8 @@ export const httpArcjet= arcjetKey ?
         key: arcjetKey,
         rules:[
             shield({mode:arcjetMode}),
-            detectBot({mode:arcjetMode, allow:['CATEGORY:SEARCH_ENGINE','CATEGORY:PREVIEW','CURL']}),
-            slidingWindow({mode:arcjetMode , interval :'10s',max:5})
+            //detectBot({mode:arcjetMode, allow:['CATEGORY:SEARCH_ENGINE','CATEGORY:PREVIEW','CURL']}),
+            slidingWindow({mode:arcjetMode , interval :'10s',max:20})
         ]
     }) 
     : null;
@@ -36,7 +36,8 @@ export const wsArcjet= arcjetKey ?
 
 export function securityMiddleware(){
     return async (req, res , next)=>{
-        if(!httpArcjet) {
+        // Temporarily disable Arcjet for testing
+        if (!httpArcjet || process.env.DISABLE_ARCJET === 'true') {
             return next();
         }
 
@@ -48,11 +49,17 @@ export function securityMiddleware(){
 
             if(decision.isDenied()){
                 console.log(`Arcjet denied ${req.method} ${req.url} - ${isRateLimited ? 'rate limit' : 'forbidden'}`);
+                console.log(`Arcjet decision details:`, {
+                    reason: decision.reason,
+                    ip: req.ip,
+                    userAgent: req.get('User-Agent'),
+                    url: req.url,
+                    method: req.method
+                });
 
                 if(isRateLimited){
                     return res.status(429).json({error:'too many requests'});
                 }
-
                 return res.status(403).json({error:'forbidden'});
             }
         }catch(e){
